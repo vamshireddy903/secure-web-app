@@ -4,24 +4,52 @@ const { Firestore } = require("@google-cloud/firestore");
 const app = express();
 app.use(express.json());
 
+// 🔐 Firestore initialization (uses Cloud Run service account)
 const db = new Firestore();
 
 /**
- * Health check
+ * Health check (Cloud Run entry test)
  */
 app.get("/", (req, res) => {
-  res.send("Backend is running securely on Cloud Run");
+  res.send("Backend is running securely on Cloud Run 🚀");
 });
 
 /**
- * Save data to Firestore
+ * GET - Read all data from Firestore
+ * Frontend calls: /data
+ */
+app.get("/data", async (req, res) => {
+  try {
+    const snapshot = await db.collection("app-data").get();
+
+    const data = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    res.json({
+      message: "Data fetched successfully",
+      data: data
+    });
+
+  } catch (err) {
+    console.error("GET error:", err);
+    res.status(500).json({
+      error: "Error reading Firestore"
+    });
+  }
+});
+
+/**
+ * POST - Save data to Firestore
+ * Frontend calls: /data
  */
 app.post("/data", async (req, res) => {
   try {
-    const data = req.body;
+    const input = req.body;
 
     const docRef = await db.collection("app-data").add({
-      ...data,
+      ...input,
       timestamp: new Date()
     });
 
@@ -29,13 +57,17 @@ app.post("/data", async (req, res) => {
       message: "Data stored successfully",
       id: docRef.id
     });
+
   } catch (err) {
-    console.error(err);
-    res.status(500).send("Error writing to Firestore");
+    console.error("POST error:", err);
+    res.status(500).json({
+      error: "Error writing to Firestore"
+    });
   }
 });
 
 const PORT = process.env.PORT || 8080;
+
 app.listen(PORT, () => {
   console.log(`Backend running on port ${PORT}`);
 });
