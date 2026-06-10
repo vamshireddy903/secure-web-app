@@ -4,72 +4,39 @@ const { Firestore } = require("@google-cloud/firestore");
 const app = express();
 app.use(express.json());
 
-// 🔐 Firestore initialization (uses Cloud Run service account)
 const db = new Firestore();
 
-/**
- * Health check (Cloud Run entry test)
- */
+// Health check
 app.get("/", (req, res) => {
-  res.send("Backend is running securely on Cloud Run 🚀");
+  res.send("Backend running securely 🚀");
 });
 
-/**
- * GET - Read all data from Firestore
- * Frontend calls: /data
- */
-app.get("/data", async (req, res) => {
-  try {
-    const snapshot = await db.collection("app-data").get();
+// GET tasks
+app.get("/tasks", async (req, res) => {
+  const snapshot = await db.collection("tasks").get();
 
-    const data = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
+  const tasks = snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data()
+  }));
 
-    res.json({
-      message: "Data fetched successfully",
-      data: data
-    });
-
-  } catch (err) {
-    console.error("GET error:", err);
-    res.status(500).json({
-      error: "Error reading Firestore"
-    });
-  }
+  res.json(tasks);
 });
 
-/**
- * POST - Save data to Firestore
- * Frontend calls: /data
- */
-app.post("/data", async (req, res) => {
-  try {
-    const input = req.body;
+// POST task
+app.post("/tasks", async (req, res) => {
+  const { title } = req.body;
 
-    const docRef = await db.collection("app-data").add({
-      ...input,
-      timestamp: new Date()
-    });
+  const doc = await db.collection("tasks").add({
+    title,
+    status: "pending",
+    createdAt: new Date()
+  });
 
-    res.json({
-      message: "Data stored successfully",
-      id: docRef.id
-    });
-
-  } catch (err) {
-    console.error("POST error:", err);
-    res.status(500).json({
-      error: "Error writing to Firestore"
-    });
-  }
+  res.json({ id: doc.id, message: "Task created" });
 });
 
 const PORT = process.env.PORT || 8080;
-
-app.listen(PORT, () => {
-  console.log(`Backend running on port ${PORT}`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log("Backend running on", PORT);
 });
-
-
