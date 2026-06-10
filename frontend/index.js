@@ -1,55 +1,63 @@
 const express = require("express");
-const axios = require("axios");
+const { GoogleAuth } = require("google-auth-library");
 
 const app = express();
 
-// Replace this after deploying backend Cloud Run URL
 const BACKEND_URL = process.env.BACKEND_URL;
 
 app.get("/", async (req, res) => {
   try {
-    const response = await axios.get(`${BACKEND_URL}/data`);
+    const auth = new GoogleAuth();
+
+    // 🔐 Generate IAM identity token for backend
+    const client = await auth.getIdTokenClient(BACKEND_URL);
+
+    // 🔁 Call backend securely
+    const response = await client.request({
+      url: `${BACKEND_URL}/data`
+    });
 
     res.send(`
-      <h1>Secure GCP Application</h1>
-      <h3>Backend Data:</h3>
+      <h1>Frontend Running Securely</h1>
       <pre>${JSON.stringify(response.data, null, 2)}</pre>
     `);
-  } catch (error) {
-    console.error(error.message);
 
-    res.send(`
-      <h1>Frontend Running</h1>
-      <p>Backend not reachable or no data found</p>
-    `);
+  } catch (error) {
+    console.error(error);
+    res.send("Error calling backend");
   }
 });
 
 /**
- * Simple form to test POST request to backend
+ * Simple form to send data to backend
  */
 app.get("/add", (req, res) => {
   res.send(`
-    <h2>Add Data</h2>
     <form action="/submit" method="POST">
       <input name="name" placeholder="Enter name" />
-      <button type="submit">Submit</button>
+      <button type="submit">Send</button>
     </form>
   `);
 });
 
 app.post("/submit", express.urlencoded({ extended: true }), async (req, res) => {
   try {
-    const name = req.body.name;
+    const auth = new GoogleAuth();
+    const client = await auth.getIdTokenClient(BACKEND_URL);
 
-    await axios.post(`${BACKEND_URL}/data`, {
-      name: name,
-      source: "frontend"
+    await client.request({
+      url: `${BACKEND_URL}/data`,
+      method: "POST",
+      data: {
+        name: req.body.name,
+        source: "frontend"
+      }
     });
 
-    res.send("<h3>Data sent to backend successfully</h3>");
+    res.send("Data sent securely to backend");
   } catch (err) {
-    res.send("<h3>Error sending data</h3>");
+    console.error(err);
+    res.send("Error sending data");
   }
 });
 
