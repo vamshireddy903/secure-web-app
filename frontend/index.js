@@ -7,75 +7,77 @@ app.use(express.json());
 
 const BACKEND_URL = process.env.BACKEND_URL;
 
-/**
- * Call backend securely
- */
-async function callBackend(path = "/data", method = "GET", body = null) {
+// Secure backend call (IAM)
+async function callBackend(path, method = "GET", body = null) {
   const auth = new GoogleAuth();
-
   const client = await auth.getIdTokenClient(BACKEND_URL);
-  const idToken = await client.fetchIdToken(BACKEND_URL);
+  const token = await client.fetchIdToken(BACKEND_URL);
 
-  const response = await fetch(`${BACKEND_URL}${path}`, {
+  const res = await fetch(`${BACKEND_URL}${path}`, {
     method,
     headers: {
-      Authorization: `Bearer ${idToken}`,
+      Authorization: `Bearer ${token}`,
       "Content-Type": "application/json"
     },
     body: body ? JSON.stringify(body) : undefined
   });
 
-  return await response.text();
+  return res.json();
 }
 
-/**
- * Home route
- */
+// UI
 app.get("/", async (req, res) => {
-  try {
-    const data = await callBackend("/data");
+  const tasks = await callBackend("/tasks");
 
-    res.send(`
-      <h1>Frontend Running Securely 🚀</h1>
-      <pre>${data}</pre>
-    `);
-  } catch (err) {
-    console.error(err);
-    res.send("Error calling backend");
-  }
-});
+  const list = tasks.map(t =>
+    `<li class="list-group-item">${t.title}</li>`
+  ).join("");
 
-/**
- * Add page
- */
-app.get("/add", (req, res) => {
   res.send(`
-    <form action="/submit" method="POST">
-      <input name="name" placeholder="Enter name" required />
-      <button type="submit">Send</button>
-    </form>
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <title>Secure Task App</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  </head>
+
+  <body class="bg-light">
+
+  <div class="container mt-5">
+
+    <h2 class="text-center mb-4">🚀 Secure Business App</h2>
+
+    <div class="card p-3 mb-3">
+      <form action="/add" method="POST">
+        <input class="form-control mb-2" name="title" placeholder="Enter task" required />
+        <button class="btn btn-primary w-100">Add Task</button>
+      </form>
+    </div>
+
+    <div class="card p-3">
+      <h5>Tasks</h5>
+      <ul class="list-group">
+        ${list}
+      </ul>
+    </div>
+
+  </div>
+
+  </body>
+  </html>
   `);
 });
 
-/**
- * Submit data
- */
-app.post("/submit", async (req, res) => {
-  try {
-    const result = await callBackend("/data", "POST", {
-      name: req.body.name,
-      source: "frontend"
-    });
+// Add task
+app.post("/add", async (req, res) => {
+  await callBackend("/tasks", "POST", {
+    title: req.body.title
+  });
 
-    res.send(`<pre>${result}</pre>`);
-  } catch (err) {
-    console.error(err);
-    res.send("Error sending data");
-  }
+  res.redirect("/");
 });
 
 const PORT = process.env.PORT || 8080;
-
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Frontend running on port ${PORT}`);
+  console.log("Frontend running on", PORT);
 });
