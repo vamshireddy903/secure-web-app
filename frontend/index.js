@@ -8,17 +8,16 @@ app.use(express.json());
 const BACKEND_URL = process.env.BACKEND_URL;
 
 /**
- * Helper function to call backend securely using IAM token
+ * Call backend securely
  */
 async function callBackend(path = "/data", method = "GET", body = null) {
   const auth = new GoogleAuth();
 
-  // 🔐 Generate ID token for backend audience
   const client = await auth.getIdTokenClient(BACKEND_URL);
-  const idToken = await client.idTokenProvider.fetchIdToken(BACKEND_URL);
+  const idToken = await client.fetchIdToken(BACKEND_URL);
 
   const response = await fetch(`${BACKEND_URL}${path}`, {
-    method: method,
+    method,
     headers: {
       Authorization: `Bearer ${idToken}`,
       "Content-Type": "application/json"
@@ -30,7 +29,7 @@ async function callBackend(path = "/data", method = "GET", body = null) {
 }
 
 /**
- * Home route - fetch backend data
+ * Home route
  */
 app.get("/", async (req, res) => {
   try {
@@ -41,17 +40,16 @@ app.get("/", async (req, res) => {
       <pre>${data}</pre>
     `);
   } catch (err) {
-    console.error("Error:", err.message);
+    console.error(err);
     res.send("Error calling backend");
   }
 });
 
 /**
- * Simple form page
+ * Add page
  */
 app.get("/add", (req, res) => {
   res.send(`
-    <h2>Add Data</h2>
     <form action="/submit" method="POST">
       <input name="name" placeholder="Enter name" required />
       <button type="submit">Send</button>
@@ -60,7 +58,7 @@ app.get("/add", (req, res) => {
 });
 
 /**
- * Send data to backend securely
+ * Submit data
  */
 app.post("/submit", async (req, res) => {
   try {
@@ -69,18 +67,15 @@ app.post("/submit", async (req, res) => {
       source: "frontend"
     });
 
-    res.send(`
-      <h3>Data sent successfully ✅</h3>
-      <pre>${result}</pre>
-    `);
+    res.send(`<pre>${result}</pre>`);
   } catch (err) {
-    console.error("Submit error:", err.message);
+    console.error(err);
     res.send("Error sending data");
   }
 });
 
 const PORT = process.env.PORT || 8080;
 
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`Frontend running on port ${PORT}`);
 });
